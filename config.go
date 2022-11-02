@@ -120,7 +120,7 @@ func Configure() error {
 	if err := Cli(); err != nil {
 		return err
 	}
-	if err := File(); err != nil {
+	if err := file(); err != nil {
 		return err
 	}
 	Env()

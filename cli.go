@@ -10,7 +10,7 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Cli binds flags that have been configured in pando/cmd
+// Cli binds flags that have been configured as CommandOptions
 // VIPER IS THE SOURCE OF TRUTH FOR ALL CONFIGURATION
 // cobra is only for reading in subcommands and cli flags and handling help display
 func Cli() error {

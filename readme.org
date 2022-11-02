@@ -1,0 +1,64 @@
+* Panfigure
+
+An opinionated, declarative configuration utility for Go CLI applications, using Viper/Cobra.
+Panfigure relies completely on Viper, and on Cobra for CLI options.
+The point of the library is to ease the process of creating a configuration that is from multiple sources (file, environment, and CLI) and cascades in a predictable way.
+
+It also provides configuration status output including the value for each config as well as the source that provided it.
+
+** Usage
+The library allows configuration through:
+
+ 1. CLI flags
+ 2. Environment variables
+ 3. config file
+
+	Flags take precendence over ENV, which takes precedence over the config files.
+
+	The convention for setting values begins with the key in the config file, which is all lowercase, underscore separated.  The ENV VAR is all uppercase, underscore separated, and begin with a prefix.  The CLI options are all lowercase, hyphen separated, POSIX style.
+
+*** Quickstart
+TODO
+
+*** The CommandOptions type
+panfigure.CommandOptions declare the configuration parameters available to a cobra.Command.
+
+TODO enumerate important fields.
+
+See examples.
+
+*** File Configuration
+Using configuration files requires some small setup in your application:
+
+1. declare search paths for config file
+2. optionally declare a config file type eg. JSON
+3. declare config file names
+
+   #+begin_src go
+	 // in order search these directories until a config file is found
+	 configPaths := []string{
+		 "/etc/myapp",
+		 "$HOME/.myapp",
+		 ".",
+	 }
+
+	 // config_paths is a special config, reserved by panfigure for your convenience
+	 viper.Set("config_paths", configPaths)
+	 // OR
+	 viper.AddConfigPath("/etc/myapp")
+
+	 viper.SetConfigType("json")
+	 panfigure.UseConfigFile("name-of-config")
+
+	 // multiple values are acceptable - both will be searched
+	 panfigure.UseConfigFile("also-use-this-config-file")
+
+	 // if viper.SetConfigType is not called
+	 panfigure.UseConfigFile("name-of-config.yml")
+   #+end_src
+
+Once set up panfigure will read all config files and merge them together in the order declared.
+
+Since the intent of panfigure is to ease the setup of these configurations, the ~config_paths~ key is reserved for this purpose, if you like.  This makes it easy to pass the ~--config-paths~ CLI option to set this value at runtime if desired.  See ~examples/config_paths.go~  Otherwise it can be set programatically as above.
+
+All filetypes supported by Viper will be supported here.

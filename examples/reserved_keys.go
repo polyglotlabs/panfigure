@@ -17,8 +17,9 @@ var (
 			LongOpt:      "env-prefix",
 			Description:  "Automatically imported ENV vars must begin with this value.",
 			Persistent:   true,
-			DefaultValue: "PANDO",
+			DefaultValue: "MYAPP",
 		},
+		// check /etc/myapp, $HOME/.myapp, then current directory in that order
 		{
 			LongOpt:     "config-paths",
 			ShortOpt:    "c",
@@ -26,8 +27,8 @@ var (
 			OptType:     "[]string",
 			Persistent:  true,
 			DefaultValue: []string{
-				"/etc/pando",
-				"$HOME/.pando",
+				"/etc/myapp",
+				"$HOME/.myapp",
 				".",
 			},
 		},

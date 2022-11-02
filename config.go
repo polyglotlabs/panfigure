@@ -75,6 +75,8 @@ func keyFor(c *cobra.Command, option *CommandOptions) string {
 	return strings.Join(cmdParts, ".")
 }
 
+// CommandOptions are used to declare the configuration options for an application.
+// They are most closely related to cobra.Command, but also define behavior for Env and file-based configs.
 type CommandOptions struct {
 	LongOpt, ShortOpt, OptName, Description, OptType string
 
@@ -101,21 +103,21 @@ func (c *CommandOptions) Name() string {
 	return name
 }
 
-// SetRootCommand allows config access to the root cobra command from cmd.
+// SetRootCommand allows panfigure access to the root cobra command from of an application.
 func SetRootCommand(c *cobra.Command) {
 	rootCmd = c
 }
 
 // SetCommandOptions adds a cobra command with configuration options to the list
-// for configuration by viper
+// for configuration by viper.
 func SetCommandOptions(c *cobra.Command, opts []*CommandOptions) {
 	options[c] = opts
 }
 
-// Configure triggers the reading of the configuration from all sources
-// order is important - some cli options could impact which config files are read
-// cli and file configs could impact eg. env-prefix, etc. and make AutomaticEnv more complete
+// Configure triggers the reading of the configuration from all sources.
 func Configure() error {
+	// Order is important: some cli options could impact which config files are read
+	// cli and file configs could impact eg. env-prefix, etc. and make AutomaticEnv more complete
 	setDefaults()
 	if err := Cli(); err != nil {
 		return err
@@ -138,8 +140,9 @@ func Reload() error {
 }
 
 // Metadata is information that won't be used by the application,
-// but might be interesting to the user, eg. through the 'status' cmd
+// but might be interesting to the user, eg. through Status functions.
 type Metadata struct {
+	// TODO does this need to be exported?
 	filesParsed []string
 	sources     map[string]string
 

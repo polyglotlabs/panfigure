@@ -30,7 +30,7 @@ func (s *StatusInfo) String() string {
 	return fmt.Sprintf("(Key: %s | Value: %v | Source: %s | Err: %v)\n", s.Key, s.Value, s.Source, s.Err)
 }
 
-// Status returns StatusInfo for the requested keys
+// Status returns StatusInfo for the requested keys.
 // If an empty slice is passed, all Viper Keys will be returned.
 func Status(keys []string) []*StatusInfo {
 	// default
@@ -59,6 +59,8 @@ func Status(keys []string) []*StatusInfo {
 	return out
 }
 
+// StatusTable returns a text table, somewhat suitable for display in terminal, containing requested keys
+// with values and sources.
 func StatusTable(keys []string) string {
 	out := "\n"
 	out += "Files Parsed: \n"

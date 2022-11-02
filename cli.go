@@ -10,9 +10,9 @@ import (
 	"github.com/spf13/viper"
 )
 
-// Cli binds flags that have been configured as CommandOptions
-// VIPER IS THE SOURCE OF TRUTH FOR ALL CONFIGURATION
-// cobra is only for reading in subcommands and cli flags and handling help display
+// Cli binds flags that have been configured as CommandOptions.
+// Viper is the source of truth for all configuration.
+// Cobra is only for reading in subcommands and cli flags and handling help display.
 func Cli() error {
 	for comm, optList := range options {
 		for _, opt := range optList {

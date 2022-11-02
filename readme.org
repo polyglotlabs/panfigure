@@ -59,6 +59,19 @@ Using configuration files requires some small setup in your application:
 
 Once set up panfigure will read all config files and merge them together in the order declared.
 
-Since the intent of panfigure is to ease the setup of these configurations, the ~config_paths~ key is reserved for this purpose, if you like.  This makes it easy to pass the ~--config-paths~ CLI option to set this value at runtime if desired.  See ~examples/config_paths.go~  Otherwise it can be set programatically as above.
+Since the intent of panfigure is to ease the setup of these configurations, the ~config_paths~ key is reserved for this purpose, if you like.  This makes it easy to pass the ~--config-paths~ CLI option to set this value at runtime if desired.  See ~examples/reserved_keys.go~  Otherwise it can be set programatically as above.
 
 All filetypes supported by Viper will be supported here.
+
+If no config paths are provided, panfigure will not look for any config files.
+
+If no config files are provided, file configuration will not be used.
+
+*** Environment Configuration
+
+Environment configuration is a simple wrapper for ~viper.AutomaticEnv~ and will load all defined configs found in the environment, optionally with env_prefix.  If no env_prefix is provided, Viper will attempt to find an exact match in all caps.
+
+panfigure adds the following functionality
+
+1. Keeps track of configs found in the environment for reporting via status
+2. Reserves another viper key ~env_prefix~.  Exactly the same as ~config_paths~.  This allows simple runtime configuration of env_prefix if desired.  See ~examples/reserved_keys.go~

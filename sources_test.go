@@ -10,11 +10,12 @@ import (
 
 var testMeta *Metadata
 
-func clearTestMeta() {
+func clearTestConfigs() {
 	testMeta = &Metadata{
 		sources:    make(map[string]string),
 		prevConfig: make(map[string]interface{}),
 	}
+	viper.Reset()
 }
 
 func testCompareStringSlice(s1, s2 []string) bool {
@@ -31,7 +32,7 @@ func testCompareStringSlice(s1, s2 []string) bool {
 }
 
 func TestGetUpdatedKeysSimple(t *testing.T) {
-	clearTestMeta()
+	clearTestConfigs()
 	viper.Set("key1", 1)
 	viper.Set("key2", "2")
 	viper.Set("key3", "three")
@@ -49,7 +50,7 @@ func TestGetUpdatedKeysSimple(t *testing.T) {
 }
 
 func TestGetUpdatedKeysPartialMap(t *testing.T) {
-	clearTestMeta()
+	clearTestConfigs()
 	viper.Set("string1", "string1val")
 
 	map1 := make(map[string]string)
@@ -71,7 +72,7 @@ func TestGetUpdatedKeysPartialMap(t *testing.T) {
 }
 
 func TestGetUpdatedKeysFullMap(t *testing.T) {
-	clearTestMeta()
+	clearTestConfigs()
 	viper.Set("string1", "string1val")
 
 	map1 := make(map[string]interface{})
@@ -98,7 +99,7 @@ func TestGetUpdatedKeysFullMap(t *testing.T) {
 }
 
 func TestGetUpdatedKeysFullMapNoChange(t *testing.T) {
-	clearTestMeta()
+	clearTestConfigs()
 	viper.Set("string1", "string1val")
 
 	map1 := make(map[string]interface{})
@@ -125,7 +126,7 @@ func TestGetUpdatedKeysFullMapNoChange(t *testing.T) {
 }
 
 func TestGetUpdatedKeysNoChange(t *testing.T) {
-	clearTestMeta()
+	clearTestConfigs()
 	viper.Set("key1", "val1")
 
 	testMeta.updateSources("1")
@@ -140,7 +141,7 @@ func TestGetUpdatedKeysNoChange(t *testing.T) {
 }
 
 func TestGetUpdatedKeysFromFileSimple(t *testing.T) {
-	clearTestMeta()
+	clearTestConfigs()
 	map1 := make(map[string]interface{})
 	map1["key1"] = 1
 	map1["key2"] = "key2val"

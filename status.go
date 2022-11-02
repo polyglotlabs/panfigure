@@ -1,6 +1,7 @@
 package panfigure
 
 import (
+	"fmt"
 	"sort"
 
 	"github.com/jedib0t/go-pretty/v6/table"
@@ -23,6 +24,10 @@ type StatusInfo struct {
 	Key, Source string
 	Value       interface{}
 	Err         error
+}
+
+func (s *StatusInfo) String() string {
+	return fmt.Sprintf("(Key: %s | Value: %v | Source: %s | Err: %v)\n", s.Key, s.Value, s.Source, s.Err)
 }
 
 // Status returns StatusInfo for the requested keys

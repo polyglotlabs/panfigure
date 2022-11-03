@@ -84,8 +84,9 @@ func bindFlag(comm *cobra.Command, o *CommandOptions) error {
 // a bit silly, and will only work for config cmd
 // but config is the only cmd that uses sources (at time of comment)
 // a better solution would be great!
+// TODO this must change for panfigure, but for now it will still work if status command exists
 func updateCliSources() {
-	configCmd, _, err := rootCmd.Find([]string{"config"})
+	configCmd, _, err := rootCmd.Find([]string{"status"})
 	if err != nil {
 		// I don't think we need to halt execution here ,not that big a deal
 		log.Println("unable to set cli sources correctly: ", configCmd.Use, ": ", err)

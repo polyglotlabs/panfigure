@@ -18,7 +18,29 @@ The library allows configuration through:
 	The convention for setting values begins with the key in the config file, which is all lowercase, underscore separated.  The ENV VAR is all uppercase, underscore separated, and begin with a prefix.  The CLI options are all lowercase, hyphen separated, POSIX style.
 
 *** Quickstart
-TODO
+The bones of your configuration are ~CommandOptions~.  See the examples folder for some ideas of what that can look like.
+
+Once commands and options are created, you can run a very simple application that displays all detected configurations in the terminal:
+
+See all the keys that you've configured with:
+
+#+begin_src go
+  package main
+
+  import (
+	  "log"
+
+	  "github.com/polyglotlabs/panfigure"
+	  "github.com/spf13/cobra"
+  )
+
+  func main() {
+	  cobra.CheckErr(panfigure.Configure())
+	  status := panfigure.StatusTable([]string{})
+	  log.Println(status)
+  }
+#+end_src
+
 
 *** The CommandOptions type
 panfigure.CommandOptions declare the configuration parameters available to a cobra.Command.
@@ -28,6 +50,14 @@ TODO enumerate important fields.
 See examples.
 
 *** File Configuration
+Panfigure allows reading of all configuration keys from a file (of any type supported by Viper).
+/Keys are nested under the subcommands that they apply to!/
+So configurations that are applied to the root command are not nested.  For example:
+
+In command like ~myapp --verbose start --host localhost~
+
+The keys in viper will be ~verbose~  and ~start.host~.
+
 Using configuration files requires some small setup in your application:
 
 1. declare search paths for config file
@@ -69,9 +99,32 @@ If no config files are provided, file configuration will not be used.
 
 *** Environment Configuration
 
-Environment configuration is a simple wrapper for ~viper.AutomaticEnv~ and will load all defined configs found in the environment, optionally with env_prefix.  If no env_prefix is provided, Viper will attempt to find an exact match in all caps.
+Environment configuration is a simple wrapper for ~viper.AutomaticEnv~ and will lazy load all defined configs found in the environment, optionally with env_prefix.  If no env_prefix is provided, Viper will attempt to find an exact match.
 
-panfigure adds the following functionality
+Because of the nesting capabilities of panfigure, the keys are delimited with ~.~.
+panfigure replacers those with ~_~ for purposes of ENV vars.
+
+For example using env_prefix ~MYAPP~:
+~start.host~ will correspond to ~MYAPP_START_HOST~
+~verbose~ will correspond to ~MYAPP_VERBOSE~
+
+panfigure adds the following functionality:
 
 1. Keeps track of configs found in the environment for reporting via status
 2. Reserves another viper key ~env_prefix~.  Exactly the same as ~config_paths~.  This allows simple runtime configuration of env_prefix if desired.  See ~examples/reserved_keys.go~
+
+*** Accessing Configurations in your Application
+
+Once your commands are created, all configuration values are accessible on the global Viper instance.  All packages in your go modules will be able to access these configurations with (using examples above):
+
+#+begin_src go
+  host := viper.Get("start.host")
+  // OR
+  host := viper.GetString("start.host")
+
+  verbose := viper.Get("verbose")
+  // OR
+  verbose := viper.GetBool("verbose")
+#+end_src
+
+See examples for more.

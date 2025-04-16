@@ -8,7 +8,10 @@ import (
 )
 
 func file() error {
-	configPaths := viper.Get("config_paths").([]string)
+	configPaths, ok := viper.Get("config_paths").([]string)
+	if !ok {
+		return nil
+	}
 	for _, p := range configPaths {
 		viper.AddConfigPath(p)
 	}

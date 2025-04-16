@@ -8,7 +8,7 @@ import (
 
 // Env is a wrapper for viper.AutomaticEnv.  It will use env_prefix if available.
 func Env() {
-	envPrefix := viper.Get("env_prefix").(string)
+	envPrefix := viper.GetString("env_prefix")
 	viper.GetViper().SetEnvPrefix(envPrefix)
 	viper.SetEnvKeyReplacer(keyReplacer())
 

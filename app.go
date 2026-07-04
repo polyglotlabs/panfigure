@@ -197,13 +197,15 @@ func (a *App) setDefaults() {
 // installPreRun wraps any existing root PersistentPreRunE with panfigure's
 // post-parse work: attribute CLI-supplied keys and enforce required options.
 // The wrapper runs for every subcommand (cobra invokes the nearest ancestor's
-// PersistentPreRunE), so consumers should set their own hook on root, not on
-// subcommands, if they want it composed with panfigure's.
+// PersistentPreRunE, passing the executed command as c), so consumers should set
+// their own hook on root, not on subcommands, if they want it composed with
+// panfigure's. Required-ness is scoped to the running command (see inScope), so
+// an option registered Required on one command does not block its siblings.
 func (a *App) installPreRun() {
 	orig := a.root.PersistentPreRunE
 	a.root.PersistentPreRunE = func(c *cobra.Command, args []string) error {
 		a.meta.updateSources("cli", a.viper)
-		if err := a.validateRequired(); err != nil {
+		if err := a.validateRequired(c); err != nil {
 			return err
 		}
 		if orig != nil {
@@ -213,12 +215,18 @@ func (a *App) installPreRun() {
 	}
 }
 
-// validateRequired reports required options whose resolved value is empty,
-// regardless of source. Runs after flags parse (in the PreRun wrapper) so env-
-// or file-supplied values satisfy the requirement.
-func (a *App) validateRequired() error {
+// validateRequired reports required options, in scope for the running command c,
+// whose resolved value is empty regardless of source. Runs after flags parse (in
+// the PreRun wrapper) so env- or file-supplied values satisfy the requirement.
+// An option is in scope for c when it is global (registered on root) or when c
+// is, or descends from, the command it was registered on — so a Required option
+// on `server start` does not fire for `status`.
+func (a *App) validateRequired(c *cobra.Command) error {
 	var missing []string
 	for _, r := range a.registry {
+		if !a.inScope(r, c) {
+			continue
+		}
 		ns := a.resolveNS(r)
 		for _, o := range r.opts {
 			if !o.Required {
@@ -234,6 +242,21 @@ func (a *App) validateRequired() error {
 		return nil
 	}
 	return fmt.Errorf("panfigure: missing required configuration:\n  %s", strings.Join(missing, "\n  "))
+}
+
+// inScope reports whether r's options apply to the running command c. Global
+// registrations (r.cmd == nil) are always in scope; otherwise c must be r.cmd or
+// descend from it (c inherits r's options).
+func (a *App) inScope(r registration, c *cobra.Command) bool {
+	if r.cmd == nil {
+		return true
+	}
+	for cur := c; cur != nil; cur = cur.Parent() {
+		if cur == r.cmd {
+			return true
+		}
+	}
+	return false
 }
 
 // isEmpty reports whether v is an empty value for required-option purposes:

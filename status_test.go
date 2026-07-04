@@ -1,88 +1,52 @@
 package panfigure
 
-import (
-	"testing"
+import "testing"
 
-	"github.com/spf13/viper"
-)
+func TestStatusAll(t *testing.T) {
+	app := newTestApp()
+	app.viper.Set("key1", 1)
+	app.viper.Set("key2", "two")
 
-func compareStatuses(expected map[string]interface{}, actual []*StatusInfo, t *testing.T) {
-	expectedLen := len(expected)
-	actualLen := len(actual)
-	if expectedLen != actualLen {
-		t.Errorf("expected %v status infos but got %v", expectedLen, actualLen)
+	status := app.Status(nil)
+	got := map[string]any{}
+	for _, info := range status {
+		got[info.Key] = info.Value
 	}
-	for _, info := range actual {
-		expectedVal, ok := expected[info.Key]
-		if !ok {
-			t.Errorf("status not found for key %s", info.Key)
-			continue
-		}
-
-		// this comparison will only work for primitives probably, but that's ok
-		if expectedVal != info.Value {
-			t.Errorf("expected value %v, got %v", expectedVal, info.Value)
-		}
+	if got["key1"] != 1 || got["key2"] != "two" {
+		t.Errorf("status values=%v want key1=1 key2=two", got)
 	}
 }
 
 func TestStatusPartial(t *testing.T) {
-	clearTestConfigs()
-	viper.Set("key1", 1)
-	viper.Set("key2", "2")
-	viper.Set("key3", "three")
-	keys := []string{"key1", "key2"}
-	status := Status(keys)
-	expectedStatus := make(map[string]interface{})
-	expectedStatus["key1"] = 1
-	expectedStatus["key2"] = "2"
+	app := newTestApp()
+	app.viper.Set("key1", 1)
+	app.viper.Set("key2", "two")
 
-	compareStatuses(expectedStatus, status, t)
-
-	if t.Failed() {
-		t.Log("actual status failed: ", status)
-	}
-}
-
-func TestStatusAll(t *testing.T) {
-	clearTestConfigs()
-	viper.Set("key1", 1)
-	viper.Set("key2", "2")
-	viper.Set("key3", "three")
-
-	status := Status([]string{})
-
-	expectedStatus := make(map[string]interface{})
-	expectedStatus["key1"] = 1
-	expectedStatus["key2"] = "2"
-	expectedStatus["key3"] = "three"
-
-	compareStatuses(expectedStatus, status, t)
-
-	if t.Failed() {
-		t.Log("actual status failed: ", status)
+	status := app.Status([]string{"key1"})
+	if len(status) != 1 || status[0].Key != "key1" || status[0].Value != 1 {
+		t.Errorf("status=%v want single key1=1", status)
 	}
 }
 
 func TestStatusNotFound(t *testing.T) {
-	clearTestConfigs()
-	viper.Set("key1", 1)
-
-	status := Status([]string{"key2"})
-
+	app := newTestApp()
+	status := app.Status([]string{"missing"})
 	if len(status) != 1 {
-		t.Errorf("expected status of len 1, got %v", len(status))
+		t.Fatalf("len=%d want 1", len(status))
 	}
+	if status[0].Err == nil {
+		t.Fatal("expected non-nil Err for missing key")
+	}
+	if status[0].Err.Error() != StatusNotFound {
+		t.Errorf("err=%q want %q", status[0].Err.Error(), StatusNotFound)
+	}
+}
 
-	info := status[0]
-	if info.Err == nil {
-		t.Fatal("expected non-nil Err, got: ", info)
-	}
-
-	if info.Err.Error() != STATUS_NOT_FOUND {
-		t.Errorf("expected error '%s', got '%s'", STATUS_NOT_FOUND, info.Err.Error())
-	}
-	if t.Failed() {
-		t.Log("acutal status failed: ", status)
+func TestStatusTableRenders(t *testing.T) {
+	app := newTestApp()
+	app.viper.Set("key1", 1)
+	out := app.StatusTable([]string{"key1"})
+	if out == "" {
+		t.Fatal("StatusTable returned empty string")
 	}
 }

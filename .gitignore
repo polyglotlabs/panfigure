@@ -1,0 +1,8 @@
+.vscode
+.svn
+.DS_Store
+.editorconfig
+.log
+.dir-locals.el
+
+.claude

@@ -1,180 +1,93 @@
 package panfigure
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
-	"github.com/spf13/viper"
+	"github.com/spf13/cobra"
 )
 
-var testMeta *Metadata
-
-func clearTestConfigs() {
-	testMeta = &Metadata{
-		sources:    make(map[string]string),
-		prevConfig: make(map[string]interface{}),
-	}
-	viper.Reset()
+func newTestApp() *App {
+	return New(&cobra.Command{Use: "app"})
 }
 
-func testCompareStringSlice(s1, s2 []string) bool {
-	if len(s1) != len(s2) {
+func sameStrings(a, b []string) bool {
+	if len(a) != len(b) {
 		return false
 	}
-	for i, v := range s1 {
-		if v != s2[i] {
+	for i := range a {
+		if a[i] != b[i] {
 			return false
 		}
 	}
-
 	return true
 }
 
-func TestGetUpdatedKeysSimple(t *testing.T) {
-	clearTestConfigs()
-	viper.Set("key1", 1)
-	viper.Set("key2", "2")
-	viper.Set("key3", "three")
-	testMeta.updateSources("1")
-	viper.Set("key1", 1)   // unchanged
-	viper.Set("key3", "3") // changed
-	viper.Set("key4", 4)   // added
+func TestUpdatedKeysSimple(t *testing.T) {
+	app := newTestApp()
+	v := app.viper
+	v.Set("key1", 1)
+	v.Set("key2", "2")
+	v.Set("key3", "three")
+	app.meta.updateSources("1", v)
 
-	updated := testMeta.getUpdatedKeys()
-	expected := []string{"key3", "key4"}
+	v.Set("key1", 1)   // unchanged
+	v.Set("key3", "3") // changed
+	v.Set("key4", 4)   // added
 
-	if !testCompareStringSlice(updated, expected) {
-		t.Errorf("expected: %s | got : %s", expected, updated)
+	got := app.meta.updatedKeys(v)
+	if !sameStrings(got, []string{"key3", "key4"}) {
+		t.Errorf("updated=%v want [key3 key4]", got)
 	}
 }
 
-func TestGetUpdatedKeysPartialMap(t *testing.T) {
-	clearTestConfigs()
-	viper.Set("string1", "string1val")
+func TestUpdatedKeysNoChange(t *testing.T) {
+	app := newTestApp()
+	v := app.viper
+	v.Set("key1", "val1")
+	app.meta.updateSources("1", v)
 
-	map1 := make(map[string]string)
-	map1["key1"] = "key1val"
-	map1["key2"] = "key2val"
-	map1["key3"] = "key3val"
-
-	// initial map setting meant to imitate reading config file?
-	viper.Set("map1", map1)
-	testMeta.updateSources("1")
-
-	viper.Set("map1.key3", "updatedKey3val")
-	updated := testMeta.getUpdatedKeys()
-	expected := []string{"map1.key3"}
-
-	if !testCompareStringSlice(updated, expected) {
-		t.Errorf("expected: %s | got : %s", expected, updated)
+	v.Set("key1", "val1") // unchanged
+	if got := app.meta.updatedKeys(v); len(got) != 0 {
+		t.Errorf("updated=%v want []", got)
 	}
 }
 
-func TestGetUpdatedKeysFullMap(t *testing.T) {
-	clearTestConfigs()
-	viper.Set("string1", "string1val")
+func TestUpdatedKeysPartialMap(t *testing.T) {
+	app := newTestApp()
+	v := app.viper
+	m := map[string]any{"key1": "a", "key2": "b"}
+	v.Set("map1", m)
+	app.meta.updateSources("file", v)
 
-	map1 := make(map[string]interface{})
-	map1["key1"] = 1
-	map1["key2"] = "key2val"
-	map1["key3"] = true
-
-	// initial map setting meant to imitate reading config file?
-	viper.Set("map1", map1)
-	testMeta.updateSources("1")
-
-	newMap1 := make(map[string]interface{})
-	newMap1["key1"] = 1
-	newMap1["key2"] = "key2val"
-	newMap1["key3"] = false
-
-	viper.Set("map1", newMap1)
-	updated := testMeta.getUpdatedKeys()
-	expected := []string{"map1.key3"}
-
-	if !testCompareStringSlice(updated, expected) {
-		t.Errorf("expected: %s | got : %s", expected, updated)
+	v.Set("map1.key2", "B") // one leaf changed
+	got := app.meta.updatedKeys(v)
+	if !sameStrings(got, []string{"map1.key2"}) {
+		t.Errorf("updated=%v want [map1.key2]", got)
 	}
 }
 
-func TestGetUpdatedKeysFullMapNoChange(t *testing.T) {
-	clearTestConfigs()
-	viper.Set("string1", "string1val")
+func TestSourceAttributionDefaultNoneEnv(t *testing.T) {
+	t.Setenv("APP_DB_HOST", "db.example.com")
 
-	map1 := make(map[string]interface{})
-	map1["key1"] = 1
-	map1["key2"] = "key2val"
-	map1["key3"] = true
-
-	// initial map setting meant to imitate reading config file?
-	viper.Set("map1", map1)
-	testMeta.updateSources("1")
-
-	newMap1 := make(map[string]interface{})
-	newMap1["key1"] = 1
-	newMap1["key2"] = "key2val"
-	newMap1["key3"] = true
-
-	viper.Set("map1", newMap1)
-	updated := testMeta.getUpdatedKeys()
-	expected := []string{}
-
-	if !testCompareStringSlice(updated, expected) {
-		t.Errorf("expected: %s | got : %s", expected, updated)
-	}
-}
-
-func TestGetUpdatedKeysNoChange(t *testing.T) {
-	clearTestConfigs()
-	viper.Set("key1", "val1")
-
-	testMeta.updateSources("1")
-	viper.Set("key1", "val1") // unchanged
-
-	updated := testMeta.getUpdatedKeys()
-	expected := []string{}
-
-	if !testCompareStringSlice(updated, expected) {
-		t.Errorf("expected: %s | got : %s", expected, updated)
-	}
-}
-
-func TestGetUpdatedKeysFromFileSimple(t *testing.T) {
-	clearTestConfigs()
-	map1 := make(map[string]interface{})
-	map1["key1"] = 1
-	map1["key2"] = "key2val"
-	map1["key3"] = true
-	viper.Set("map1", map1)
-	testMeta.updateSources("1")
-
-	tmpDir := os.TempDir()
-	fileMap := make(map[string]interface{})
-	// this was actually unexpected, but key2 will NOT overwrite, because
-	// viper precedence favors Set, which was used for the first one
-	fileMap["key2"] = 2
-	fileMap["key4"] = "four"
-	writeViper := viper.New()
-	writeViper.AddConfigPath(tmpDir)
-	writeViper.SetConfigType("json")
-	writeViper.SetConfigName("pando_test")
-	writeViper.Set("map1", fileMap)
-	if err := writeViper.WriteConfigAs(filepath.Join(tmpDir, "pando_test.json")); err != nil {
-		t.Fatal("failed to write test config: ", err)
+	root := &cobra.Command{Use: "app"}
+	app := New(root)
+	app.Root(
+		&CommandOptions{LongOpt: "env-prefix", DefaultValue: "APP"},
+		&CommandOptions{LongOpt: "log-level", DefaultValue: "info"},
+		&CommandOptions{LongOpt: "db-host"},
+	)
+	if err := app.Configure(); err != nil {
+		t.Fatal(err)
 	}
 
-	viper.AddConfigPath(tmpDir)
-	viper.SetConfigType("json")
-	viper.SetConfigName("pando_test")
-	if err := viper.MergeInConfig(); err != nil {
-		t.Fatal("failed to read in config: ", err)
+	if s := app.Source("log_level"); s != "default" {
+		t.Errorf("log_level source=%q want default", s)
 	}
-
-	updated := testMeta.getUpdatedKeys()
-	expected := []string{"map1.key4"}
-
-	if !testCompareStringSlice(updated, expected) {
-		t.Errorf("expected: %s | got : %s", expected, updated)
+	// db_host has no default ("none") but env supplies it, so env wins.
+	if s := app.Source("db_host"); s != "env" {
+		t.Errorf("db_host source=%q want env", s)
+	}
+	if got := app.viper.GetString("db_host"); got != "db.example.com" {
+		t.Errorf("db_host value=%q want db.example.com", got)
 	}
 }

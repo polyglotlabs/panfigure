@@ -1,130 +1,143 @@
 * Panfigure
 
-An opinionated, declarative configuration utility for Go CLI applications, using Viper/Cobra.
-Panfigure relies completely on Viper, and on Cobra for CLI options.
-The point of the library is to ease the process of creating a configuration that is from multiple sources (file, environment, and CLI) and cascades in a predictable way.
+An opinionated, declarative configuration library for Go CLI applications, built
+on Viper and Cobra. Panfigure declares configuration as option packages, merges
+them from defaults, CLI, file, and environment in a predictable precedence, nests
+keys by command path or group, tracks the source of every value, and reads the
+result into a plain typed struct — no magic strings at read sites.
 
-It also provides configuration status output including the value for each config as well as the source that provided it.
+** Model
 
-** Usage
-The library allows configuration through:
+- An application owns one =*panfigure.App=, which owns its cobra root command, its
+  own =*viper.Viper=, a registry of declared options, and source metadata. No
+  package-level state; build one with =panfigure.New=.
+- Configuration is declared as =CommandOptions= (the source of truth) and
+  registered on the app in packages: =Root= (flat globals), =RootGroup=
+  (namespaced, cross-cutting packages like =db= / =mail= that inherit to every
+  subcommand), and =On= (command-local, auto-namespaced from the command path).
+- After =Run= (or =Configure=), =App.Unmarshal(&cfg)= populates a plain typed
+  struct: =db.host= maps to =cfg.DB.Host=, =server.start.addr= to
+  =cfg.Server.Start.Addr=, tag-free.
+- =App.StatusTable= shows every key, its value, and where it came from.
 
- 1. CLI flags
- 2. Environment variables
- 3. config file
-
-	Flags take precendence over ENV, which takes precedence over the config files.
-
-	The convention for setting values begins with the key in the config file, which is all lowercase, underscore separated.  The ENV VAR is all uppercase, underscore separated, and begin with a prefix.  The CLI options are all lowercase, hyphen separated, POSIX style.
-
-*** Quickstart
-The bones of your configuration are ~CommandOptions~.  See the examples folder for some ideas of what that can look like.
-
-Once commands and options are created, you can run a very simple application that displays all detected configurations in the terminal:
-
-See all the keys that you've configured with:
+** Quickstart
 
 #+begin_src go
-  package main
-
-  import (
-	  "log"
-
-	  "github.com/polyglotlabs/panfigure"
-	  "github.com/spf13/cobra"
-  )
-
   func main() {
-	  cobra.CheckErr(panfigure.Configure())
-	  status := panfigure.StatusTable([]string{})
-	  log.Println(status)
+      app := panfigure.New(cmd.Root())
+      cmd.Configure(app)               // register option packages on the instance
+      cobra.CheckErr(app.Run())        // configure + parse + finalize + validate
+      var cfg config.Config
+      cobra.CheckErr(app.Unmarshal(&cfg))
+      cobra.CheckErr(cmd.Run(&cfg))    // thread typed config to db/server/mail
   }
 #+end_src
 
-
-*** The CommandOptions type
-panfigure.CommandOptions declare the configuration parameters available to a cobra.Command.
-
-TODO enumerate important fields.
-
-See examples.
-
-*** File Configuration
-Panfigure allows reading of all configuration keys from a file (of any type supported by Viper).
-/Keys are nested under the subcommands that they apply to!/
-So configurations that are applied to the root command are not nested.  For example:
-
-In command like ~myapp --verbose start --host localhost~
-
-The keys in viper will be ~verbose~  and ~start.host~.
-
-Using configuration files requires some small setup in your application:
-
-1. declare search paths for config file
-2. optionally declare a config file type eg. JSON
-3. declare config file names
-
-   #+begin_src go
-	 // in order search these directories until a config file is found
-	 configPaths := []string{
-		 "/etc/myapp",
-		 "$HOME/.myapp",
-		 ".",
-	 }
-
-	 // config_paths is a special config, reserved by panfigure for your convenience
-	 viper.Set("config_paths", configPaths)
-	 // OR
-	 viper.AddConfigPath("/etc/myapp")
-
-	 viper.SetConfigType("json")
-	 panfigure.UseConfigFile("name-of-config")
-
-	 // multiple values are acceptable - both will be searched
-	 panfigure.UseConfigFile("also-use-this-config-file")
-
-	 // if viper.SetConfigType is not called
-	 panfigure.UseConfigFile("name-of-config.yml")
-   #+end_src
-
-Once set up panfigure will read all config files and merge them together in the order declared.
-
-Since the intent of panfigure is to ease the setup of these configurations, the ~config_paths~ key is reserved for this purpose, if you like.  This makes it easy to pass the ~--config-paths~ CLI option to set this value at runtime if desired.  See ~examples/reserved_keys.go~  Otherwise it can be set programatically as above.
-
-All filetypes supported by Viper will be supported here.
-
-If no config paths are provided, panfigure will not look for any config files.
-
-If no config files are provided, file configuration will not be used.
-
-*** Environment Configuration
-
-Environment configuration is a simple wrapper for ~viper.AutomaticEnv~ and will lazy load all defined configs found in the environment, optionally with env_prefix.  If no env_prefix is provided, Viper will attempt to find an exact match.
-
-Because of the nesting capabilities of panfigure, the keys are delimited with ~.~.
-panfigure replacers those with ~_~ for purposes of ENV vars.
-
-For example using env_prefix ~MYAPP~:
-~start.host~ will correspond to ~MYAPP_START_HOST~
-~verbose~ will correspond to ~MYAPP_VERBOSE~
-
-panfigure adds the following functionality:
-
-1. Keeps track of configs found in the environment for reporting via status
-2. Reserves another viper key ~env_prefix~.  Exactly the same as ~config_paths~.  This allows simple runtime configuration of env_prefix if desired.  See ~examples/reserved_keys.go~
-
-*** Accessing Configurations in your Application
-
-Once your commands are created, all configuration values are accessible on the global Viper instance.  All packages in your go modules will be able to access these configurations with (using examples above):
+Registering packages (typically in a consumer =cmd.Configure=):
 
 #+begin_src go
-  host := viper.Get("start.host")
-  // OR
-  host := viper.GetString("start.host")
-
-  verbose := viper.Get("verbose")
-  // OR
-  verbose := viper.GetBool("verbose")
+  func Configure(app *panfigure.App) {
+      app.Root(
+          &panfigure.CommandOptions{LongOpt: "env-prefix", DefaultValue: "APP"},
+          &panfigure.CommandOptions{LongOpt: "log-level", DefaultValue: "info"},
+      )
+      // a reusable, namespaced package; keys nest under "db" and inherit to all
+      // subcommands (db.host, db.port, ...).
+      app.RootGroup("db",
+          &panfigure.CommandOptions{LongOpt: "db-host"},
+          &panfigure.CommandOptions{LongOpt: "db-port", DefaultValue: 5432, OptType: panfigure.OptInt},
+      )
+      // command-local; keys nest under the command path (server.start.addr).
+      app.On(serverStartCmd,
+          &panfigure.CommandOptions{LongOpt: "addr", DefaultValue: "127.0.0.1:8080"},
+      )
+  }
 #+end_src
 
-See examples for more.
+See =examples/= for a runnable program.
+
+** CommandOptions fields
+
+| Field         | Meaning                                                                              |
+|---------------|--------------------------------------------------------------------------------------|
+| =LongOpt=       | long CLI flag name without =--= (e.g. ="db-host"=). Required unless =OptName= is set.    |
+| =ShortOpt=      | optional one-letter flag (e.g. ="a"=).                                                |
+| =OptName=       | config key leaf; if empty, derived from =LongOpt= (see Key derivation).              |
+| =Description=   | shown in =--help=.                                                                   |
+| =OptType=       | =OptString= (default), =OptInt=, =OptBool=, =OptCount=, =OptStringSlice=, =OptDuration=. |
+| =NoCLI=         | file/env only; no CLI flag.                                                          |
+| =Persistent=    | (command-local only) expose the flag on subcommands too. Root options are always persistent. |
+| =Required=      | =Run= fails if the resolved value is empty, regardless of source.                    |
+| =DefaultValue=  | applied when no source provides the option.                                          |
+
+** Key derivation
+
+Keys are computed at =Configure= time (never at registration), so registration
+order and command-tree topology do not matter.
+
+- flag = =--LongOpt= (consumer-controlled).
+- leaf = =OptName= if set; otherwise =LongOpt= with a leading ="<namespace>_"=
+  prefix removed when present (so ="db-host"= under namespace ="db"= → ="host"=),
+  then remaining =-= → =_=.
+- key = ="<namespace>.<leaf>"= (=db.host=, =server.start.addr=); flat for root.
+
+** Precedence
+
+From highest to lowest: CLI flag > environment > config file > default. (Viper
+ignores unchanged flags, so a flag only wins when actually passed.) Each value's
+source is recorded as it merges and shown by =StatusTable= / =Source=.
+
+** Reserved keys
+
+These are ordinary options you declare; panfigure treats their values specially:
+
+- =env-prefix= (flat) :: the prefix for environment-variable lookup. Env is the
+  default source. =db.host= with prefix =APP= → =APP_DB_HOST=.
+- =config-paths= (flat, =[]string=) :: directories searched for the config file.
+
+** Typed config and the drift check
+
+=App.Unmarshal(&cfg)= matches config keys to struct fields case- and
+separator-insensitively (snake_case keys ↔ CamelCase fields), so consumer code
+needs no struct tags and no =viper.GetString=. Declarations and the struct are
+two artifacts; keep them aligned with a CI test:
+
+#+begin_src go
+  func TestConfigSync(t *testing.T) {
+      app := panfigure.New(cmd.Root())
+      cmd.Configure(app)
+      panfigure.AssertSync(t, app, &config.Config{})
+  }
+#+end_src
+
+=AssertSync= reports a declared option with no matching field, a type mismatch,
+or a struct field with no declaration (catches typos). A config-struct generator
+that writes the struct from the declarations is planned for a later release.
+
+** File configuration
+
+Env is the default; files are secondary. Configure a file (read during
+=Configure=, merged into the defaults/env state):
+
+#+begin_src go
+  app.AddConfigPath("/etc/myapp")
+  app.AddConfigPath(".")
+  app.SetConfigName("config")   // type inferred from extension, or:
+  app.SetConfigType("yaml")
+#+end_src
+
+A missing config file is not an error.
+
+** Reload
+
+=App.Reload= discards all merged configuration (a fresh viper and metadata) and
+re-runs =Configure= against the current environment and files. The registry,
+root command, and file-config state persist.
+
+** Status
+
+#+begin_src go
+  app.StatusTable(nil)            // text table of all keys, values, sources
+  app.Status([]string{"db.host"}) // []*StatusInfo for specific keys
+  app.Source("db.host")           // "default" | "env" | "file(name)" | "cli" | "none" | "unknown"
+#+end_src

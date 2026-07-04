@@ -1,26 +1,15 @@
 package panfigure
 
-import (
-	"strings"
+import "strings"
 
-	"github.com/spf13/viper"
-)
-
-// Env is a wrapper for viper.AutomaticEnv.  It will use env_prefix if available.
-func Env() {
-	envPrefix := viper.GetString("env_prefix")
-	viper.GetViper().SetEnvPrefix(envPrefix)
-	viper.SetEnvKeyReplacer(keyReplacer())
-
-	// I can't think of a reason to allow this yet
-	viper.AllowEmptyEnv(false)
-
-	viper.AutomaticEnv()
-	meta.updateSources("env")
-}
-
-// the replacer for panfigure replaces . with _
-// panfigure uses dots for nested keys
-func keyReplacer() *strings.Replacer {
-	return strings.NewReplacer(".", "_")
+// setupEnv enables viper environment binding with the configured prefix (from
+// the reserved "env_prefix" option) and the "." -> "_" key replacer panfigure
+// uses to map nested keys to env vars (e.g. "db.host" => APP_DB_HOST). Env is the
+// default config source; files are secondary (see SetConfigName/AddConfigPath).
+func (a *App) setupEnv() {
+	a.viper.SetEnvPrefix(a.viper.GetString("env_prefix"))
+	a.viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_"))
+	a.viper.AllowEmptyEnv(false)
+	a.viper.AutomaticEnv()
+	a.meta.updateSources("env", a.viper)
 }

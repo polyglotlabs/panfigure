@@ -128,6 +128,32 @@ Env is the default; files are secondary. Configure a file (read during
 
 A missing config file is not an error.
 
+** Writing configuration
+
+Panfigure can also write the merged configuration back out, as a clean library
+primitive (it never exposes a separate viper for the caller to populate). Two
+methods cover it:
+
+#+begin_src go
+  app.Set("install.installed", true)                  // inject any value (declared or not)
+  app.WriteSubset("install.", "managed.json")         // write just the "install.*" keys
+#+end_src
+
+- =App.Set= assigns a value in the merged configuration. Use it to inject values
+  no source supplies or that are not declared options (such as a managed
+  ="installed"= marker). =Set= values have no source attribution (=Status= reports
+  them as ="unknown"=).
+- =App.WriteSubset(prefix, path)= writes every merged key whose name begins with
+  =prefix= to =path=, inferring the format from the file's extension (=.json= ->
+  JSON). An empty prefix writes the whole merged configuration. The directory at
+  =path= must exist; an existing file is overwritten.
+
+The output is written by the same engine that reads it, so a write followed by a
+normal file read round-trips: =Set=-injected keys are included as long as they
+fall under =prefix=, and the prefix is retained in the written keys. This fits the
+"write a managed snapshot of one namespace" pattern (e.g. persist the resolved
+=install.*= options to a generated file that is read back at startup).
+
 ** Reload
 
 =App.Reload= discards all merged configuration (a fresh viper and metadata) and

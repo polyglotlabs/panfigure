@@ -229,7 +229,14 @@ func (a *App) validateRequired(c *cobra.Command) error {
 		}
 		ns := a.resolveNS(r)
 		for _, o := range r.opts {
-			if !o.Required {
+			// RequiredWhen, when set, decides for this run; otherwise Required
+			// governs. The predicate reads resolved values, so this must run after
+			// Configure's merge — which it does, in the PreRun wrapper.
+			required := o.Required
+			if o.RequiredWhen != nil {
+				required = o.RequiredWhen(a)
+			}
+			if !required {
 				continue
 			}
 			key := a.keyFor(ns, o)

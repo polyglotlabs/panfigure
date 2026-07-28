@@ -80,6 +80,14 @@ type CommandOptions struct {
 	// Required makes App.Run fail when the resolved value is empty, regardless of
 	// which source (flag, env, file) supplies it.
 	Required bool
+	// RequiredWhen, when non-nil, is evaluated during required validation (after
+	// sources merge) and its result takes the place of Required for this run: the
+	// option is required only when the predicate returns true. When nil, Required
+	// governs as usual, so the zero value preserves existing behavior. The
+	// predicate receives the *App so it can inspect other options' resolved values
+	// via App.Get (e.g. require a set of LDAP options only when user-management is
+	// "ldap"). RequiredWhen, when set, overrides Required.
+	RequiredWhen func(*App) bool
 	// DefaultValue is applied when no source provides the option.
 	DefaultValue any
 }

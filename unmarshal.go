@@ -7,6 +7,14 @@ import (
 	"github.com/go-viper/mapstructure/v2"
 )
 
+// Get returns the merged, resolved value for a config key across all sources
+// (default < file < env < cli). It is the single-value counterpart to Unmarshal,
+// intended for predicates such as CommandOptions.RequiredWhen that must inspect
+// other options' resolved values at validation time.
+func (a *App) Get(key string) any {
+	return a.viper.Get(key)
+}
+
 // Unmarshal populates dst from the merged configuration. Config keys (snake_case,
 // dot-nested) match struct fields case- and separator-insensitively, so
 // "db.host" maps to field DB.Host and "base_url" maps to BaseURL without struct

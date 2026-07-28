@@ -87,13 +87,18 @@ From highest to lowest: CLI flag > environment > config file > default. (Viper
 ignores unchanged flags, so a flag only wins when actually passed.) Each value's
 source is recorded as it merges and shown by =StatusTable= / =Source=.
 
+When multiple config files are read, later files override earlier ones *within
+the file tier* (still below env and CLI). The merge is at key granularity — an
+override file can change one key of a nested map without dropping its siblings —
+and =Source= names the file that supplied each value (e.g. =file(user.json)=).
+
 ** Reserved keys
 
 These are ordinary options you declare; panfigure treats their values specially:
 
 - =env-prefix= (flat) :: the prefix for environment-variable lookup. Env is the
-  default source. =db.host= with prefix =APP= → =APP_DB_HOST=.
-- =config-paths= (flat, =[]string=) :: directories searched for the config file.
+  default source. =db.host= with prefix =APP= → =APP_DB_HOST=. This is the only
+  reserved key.
 
 ** Typed config and the drift check
 
@@ -116,17 +121,35 @@ that writes the struct from the declarations is planned for a later release.
 
 ** File configuration
 
-Env is the default; files are secondary. Configure a file (read during
-=Configure=, merged into the defaults/env state):
+Env is the default; files are secondary. Configure files to read during
+=Configure= (each merged into the defaults/env state). Files are read in the
+order added; a later file overrides an earlier one at key granularity.
 
 #+begin_src go
-  app.AddConfigPath("/etc/myapp")
-  app.AddConfigPath(".")
+  // Explicit files, in override order. A missing file is silently skipped.
+  app.AddConfigFile("managed.json")          // e.g. a file panfigure wrote
+  app.AddConfigFile("/etc/myapp/user.json")  // optional user override (wins)
+
+  // A "package.d" directory: every top-level file with a recognized extension,
+  // merged in ascending filename order (prefix with 00-, 10- to order).
+  app.AddConfigDir("/etc/myapp/conf.d")
+#+end_src
+
+Files occupy the single "file" precedence tier (below env, below CLI). Within
+that tier, sources are merged in the order added; within a directory, files are
+read in ascending filename order. A missing file or directory is not an error; a
+malformed or unreadable file is. =Source= names the file that supplied each
+value (e.g. =file(user.json)=), so overrides are visible in =StatusTable=.
+
+The classic search form is retained: =AddConfigPath= (search directory) plus
+=SetConfigName= / =UseConfigFile= (file name; type inferred from extension, or
+set explicitly with =SetConfigType=). Viper reads the first match.
+
+#+begin_src go
+  app.AddConfigPath("/etc/myapp").AddConfigPath(".")
   app.SetConfigName("config")   // type inferred from extension, or:
   app.SetConfigType("yaml")
 #+end_src
-
-A missing config file is not an error.
 
 ** Writing configuration
 

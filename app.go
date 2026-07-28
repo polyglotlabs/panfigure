@@ -23,6 +23,7 @@ type App struct {
 	configName  string
 	configType  string
 	configPaths []string
+	fileSources []fileSource // ordered files/dirs merged in list order during readFile
 }
 
 // registration is a package of options bound to a target command under a
